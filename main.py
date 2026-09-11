@@ -1,11 +1,10 @@
 import os
-import time
 import json
 from dotenv import load_dotenv
 from google import genai
 from google.genai.errors import APIError
 
-# Chargement des variables d'environnement
+# Chargement des variables d'environnement (.env)
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -18,7 +17,7 @@ class MockResponse:
 
 
 def appeler_gemini(prompt: str):
-    """Effectue l'appel API avec secours Mock en cas de quota ou indisponibilité."""
+    """Effectue l'appel API avec secours Mock en cas de quota ou d'indisponibilité."""
     if api_key:
         client = genai.Client(api_key=api_key)
         for model_name in MODELS:
@@ -39,17 +38,21 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "15 mots maximum" in prompt:
-        return MockResponse("Échec intermittent du paiement par carte Visa lors de la transaction.")
-    elif "GRILLE D'ÉVALUATION OBLIGATOIRE" in prompt:
-        return MockResponse("""- Statut global : VALIDE
-- Détail du contrôle :
-  - Informations non justifiées : SANS ANOMALIE
-  - Contradictions : SANS ANOMALIE
-  - Informations absentes : SANS ANOMALIE
-  - Hallucinations : AUCUNE
-  - Respect des contraintes : RESPECTÉ
-- Conclusion : La réponse est conforme.""")
+    if "RÉSUMÉ DE DOCUMENT" in prompt or "250 mots MAXIMUM" in prompt:
+        return MockResponse("""**1. Objectifs**
+- Réduire le temps de traitement des réclamations de 30%.
+- Porter le taux de satisfaction client à 85%.
+
+**2. Résultats**
+- Déploiement d'un outil d'IA de tri automatique au Q3.
+- Baisse du temps de réponse moyen de 48h à 12h.
+- Progression du score de satisfaction de 72% à 81%.
+- Taux d'adoption limité à 60% en raison d'un déficit de formation.
+
+**3. Recommandations**
+- Dispenser une formation obligatoire de deux semaines aux agents.
+- Mettre à jour le guide utilisateur interne.
+- Suivre chaque semaine les indicateurs d'adoption.""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -61,90 +64,65 @@ def appeler_gemini(prompt: str):
         return MockResponse(json.dumps(mock_json, ensure_ascii=False, indent=2))
 
 
-def valider_reponse_json(donnees: dict) -> tuple[bool, list[str]]:
-    """Vérifie le respect strict des règles métiers sur le dictionnaire JSON."""
-    erreurs = []
-    champs_autorises = {"sentiment", "categorie", "urgence", "probleme", "confiance"}
+# ==============================================================================
+# PARTIE 5.1 : RÉSUMÉ DE DOCUMENT MÉTIER
+# ==============================================================================
 
-    # 1. Propriétés supplémentaires
-    champs_extra = set(donnees.keys()) - champs_autorises
-    if champs_extra:
-        erreurs.append(f"Propriétés non autorisées : {champs_extra}")
-
-    # 2. Validation du sentiment
-    sentiments_valides = {"positif", "negatif", "neutre"}
-    if donnees.get("sentiment") not in sentiments_valides:
-        erreurs.append(f"Sentiment invalide : '{donnees.get('sentiment')}'")
-
-    # 3. Validation de l'urgence
-    urgences_valides = {"faible", "moyenne", "élevée"}
-    if donnees.get("urgence") not in urgences_valides:
-        erreurs.append(f"Urgence invalide : '{donnees.get('urgence')}'")
-
-    # 4. Validation de la confiance
-    confiance = donnees.get("confiance")
-    if not isinstance(confiance, (int, float)) or not (0.0 <= confiance <= 1.0):
-        erreurs.append(f"Confiance invalide : '{confiance}' (doit être un float entre 0 et 1)")
-
-    return len(erreurs) == 0, erreurs
-
-
-def question_structuration_avec_validation(commentaire_client: str):
-    """Analyse un commentaire et valide le JSON selon des règles strictes."""
+def question_resume_documentaire(document_texte: str) -> str:
+    """
+    Rédige un résumé structuré d'un document métier respectant les contraintes :
+    - Maximum 250 mots
+    - Informations factuelles uniquement (aucune invention)
+    - Identification des objectifs, résultats et recommandations
+    """
     print("==================================================")
-    print("   QUESTION : STRUCTURATION ET VALIDATION JSON   ")
+    print("   PARTIE 5.1 : RÉSUMÉ DE DOCUMENT MÉTIER         ")
     print("==================================================\n")
 
     prompt = f"""### TÂCHE
-Analyse le commentaire client ci-dessous et extrait les informations au format JSON STRICT.
+Rédige un résumé analytique du document ci-dessous en respectant scrupuleusement les contraintes métiers.
 
-### COMMENTAIRE CLIENT
-"{commentaire_client}"
+### DOCUMENT À RÉSUMER
+"{document_texte}"
 
-### SPÉCIFICATION DU FORMAT ET RÈGLES DE SORTIE
-Tu dois répondre UNIQUEMENT avec un objet JSON respectant STRICTEMENT les règles suivantes :
+### CONTRAINTES DE RÉDACTION
+1. Longueur : 250 mots MAXIMUM.
+2. Exactitude : Conserve uniquement les informations factuelles présentes dans le texte.
+3. Factuality : N'invente AUCUNE information et n'ajoute pas de suppositions (zéro hallucination).
 
-1. Format JSON valide.
-2. AUCUNE propriété supplémentaire que les 5 clés spécifiées ci-dessous.
-3. "sentiment" : Valeurs autorisées uniquement : "positif", "negatif", "neutre".
-4. "urgence"   : Valeurs autorisées uniquement : "faible", "moyenne", "élevée".
-5. "confiance" : Nombre flottant obligatoirement compris entre 0.0 et 1.0.
-6. "categorie" : Exemples ("livraison", "produit", "service_client", "paiement").
-7. "probleme"  : Description succincte du problème (chaîne de caractères).
+### STRUCTURE OBLIGATOIRE DU RÉSUMÉ
+Organise ta réponse avec la structure suivante :
 
-### CONTRAINTES STRICTES
-- Pas de texte explicatif avant ou après.
-- Pas de balises Markdown (ne pas utiliser ```json)."""
+1. **Objectifs** : Quels sont les buts ou la finalité visés dans le document ?
+2. **Résultats** : Quels sont les constatations, chiffres clés ou faits observés sous forme de phrases?
+3. **Recommandations** : Quelles sont les préconisations ou actions suggérées ?
+
+### EXIGENCES DE FORMAT
+Réponds directement en français avec la structure demandée, sans texte d'introduction inutile."""
 
     res = appeler_gemini(prompt)
-    json_brut = res.text.strip()
+    resume = res.text.strip()
 
-    print(f"Commentaire analysé : {commentaire_client}\n")
-    print("[Réponse brute du modèle] :")
-    print(json_brut)
+    print("[Texte original] :")
+    print(document_texte.strip()[:200] + "... [tronqué]\n")
+    print("[Résumé généré] :")
+    print(resume)
     print("\n--------------------------------------------------")
 
-    try:
-        cleaned_str = json_brut.replace("```json", "").replace("```", "").strip()
-        donnees = json.loads(cleaned_str)
-        print("[Étape 1] Format JSON valide : OK")
-    except json.JSONDecodeError as e:
-        print(f"[Étape 1 ERREUR] Parsing JSON impossible : {e}")
-        return {}
+    # Contrôle applicatif du nombre de mots
+    nb_mots = len(resume.split())
+    print(f"[Contrôle Longueur] : {nb_mots} mots (Limite : 250 mots max)")
 
-    est_valide, erreurs = valider_reponse_json(donnees)
-    if est_valide:
-        print("[Étape 2] Validation des règles métier : VALIDE\n")
-        for k, v in donnees.items():
-            print(f" - {k} : {v}")
-    else:
-        print("[Étape 2 ERREUR] Règles non respectées :")
-        for err in erreurs:
-            print(f"   ❌ {err}")
-
-    return donnees
+    return resume
 
 
 if __name__ == "__main__":
-    commentaire = "Le commentaire semble plutôt négatif. Le client est mécontent du délai de livraison..."
-    question_structuration_avec_validation(commentaire)
+    document_exemple = """
+    Rapport d'Évaluation de la Transformation Numérique - Q3 2026.
+    L'entreprise a initié un plan de modernisation de sa gestion relation client afin de réduire le temps de traitement des réclamations de 30% et d'augmenter le taux de satisfaction à 85%.
+    Au cours du troisième trimestre, les équipes ont déployé un nouvel outil d'IA pour le tri automatique des tickets support. Les données montrent une diminution effective du temps de réponse moyen de 48h à 12h, ainsi qu'une hausse du score de satisfaction client de 72% à 81%.
+    Toutefois, le taux d'adoption par le personnel du service client reste limité à 60% en raison d'un manque de formation initiale.
+    Il est vivement recommandé d'organiser un programme de formation obligatoire de deux semaines pour l'ensemble des agents, de mettre à jour le guide utilisateur interne, et d'effectuer un suivi hebdomadaire des indicateurs d'utilisation jusqu'à la fin de l'année.
+    """
+
+    question_resume_documentaire(document_exemple)

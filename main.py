@@ -38,10 +38,12 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "TRADUCTION DE DOCUMENT" in prompt:
-        return MockResponse("""Digital Transformation Assessment Report - Q3 2026.
-The company initiated a customer relationship management modernization plan to reduce claims processing time by 30% and increase the satisfaction rate to 85%.
-During the third quarter, teams deployed a new AI tool for automatic support ticket sorting. Data shows an effective reduction in average response time from 48h to 12h, as well as an increase in customer satisfaction score from 72% to 81%.""")
+    if "CLASSIFICATION TICKET INFORMATIQUE" in prompt:
+        mock_it = {
+            "categorie": "accès",
+            "justification": "Le ticket mentionne l'impossibilité de se connecter au VPN avec un message de mot de passe expiré."
+        }
+        return MockResponse(json.dumps(mock_it, ensure_ascii=False, indent=2))
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -54,55 +56,73 @@ During the third quarter, teams deployed a new AI tool for automatic support tic
 
 
 # ==============================================================================
-# PARTIE 5.2 : TRADUCTION TECHNIQUE AVEC CONTRAINTES STRICTES
+# PARTIE 5.3 : CLASSIFICATION DE TICKETS INFORMATIQUES (JSON)
 # ==============================================================================
 
-def question_traduction_documentaire(texte_francais: str) -> str:
+def question_classification_ticket_it(ticket_texte: str) -> dict:
     """
-    Traduit un document du français vers l'anglais en respectant :
-    - Conservation du sens
-    - Conservation de la structure
-    - Conservation des termes techniques
-    - Interdiction de résumer
-    - Interdiction d'ajouter des informations
+    Classe un ticket informatique dans une catégorie prédéfinie et fournit
+    une justification sous forme de JSON strict.
     """
     print("==================================================")
-    print("   PARTIE 5.2 : TRADUCTION TECHNIQUE (FR -> EN)   ")
+    print("   PARTIE 5.3 : CLASSIFICATION DE TICKET IT (JSON)")
     print("==================================================\n")
 
-    prompt = f"""### TÂCHE : TRADUCTION DE DOCUMENT
-Traduis l'intégralité du texte ci-dessous du français vers l'anglais professionnel.
+    prompt = f"""### TÂCHE : CLASSIFICATION TICKET INFORMATIQUE
+Analyse le ticket support informatique ci-dessous, attribue-lui la catégorie adéquate et fournit une brève justification.
 
-### TEXTE SOURCE (FRANÇAIS)
-"{texte_francais}"
+### TICKET INFORMATIQUE
+"{ticket_texte}"
 
-### CONTRAINTES STRICTES DE TRADUCTION
-1. Conservations du sens : Traduis avec exactitude en restituant fidèlement toutes les nuances.
-2. Conservation de la structure : Conserve la même disposition (paragraphes, puces, saut de ligne).
-3. Termes techniques : Conserve la terminologie technique et métier exacte (ex: terminologie IT/Finance).
-4. Ne pas résumer : Traduis l'intégralité du texte sans omission ni condensation.
-5. Ne rien ajouter : N'ajoute aucune explication, commentaire ou information absente du texte original.
+### RÈGLES DE CATÉGORISATION
+Champ "categorie" : Choisis STRICTEMENT une seule valeur parmi la liste autorisée :
+- "réseau"     : Problèmes Wi-Fi, VPN, lenteurs internet, connexions serveurs.
+- "logiciel"   : Bugs d'applications, plantages d'outils, mises à jour, erreurs système.
+- "matériel"   : Écran cassé, PC qui ne s'allume pas, imprimante, périphérique en panne.
+- "sécurité"   : Attaque de phishing, virus, comportement suspect, fuite de données.
+- "accès"      : Réinitialisation de mot de passe, création de compte, droits d'accès.
+- "autre"      : Demandes non couvertes par les catégories ci-dessus.
 
-### CONTRAINTE DE FORMAT
-Réponds UNIQUEMENT avec le texte traduit en anglais, sans texte d'introduction ni de conclusion."""
+### FORMAT DE SORTIE EXIGÉ
+Tu dois répondre UNIQUEMENT avec un objet JSON valide contenant EXACTEMENT les deux champs suivants :
+- "categorie"     : (string) Une des 6 valeurs autorisées ci-dessus.
+- "justification" : (string) Explication concise (1 à 2 phrases max) du choix de la catégorie.
+
+### CONTRAINTES STRICTES
+- Aucune propriété supplémentaire dans le JSON.
+- Aucun texte d'introduction ou de conclusion.
+- Aucune balise Markdown (ne pas mettre de ```json)."""
 
     res = appeler_gemini(prompt)
-    traduction = res.text.strip()
+    json_brut = res.text.strip()
 
-    print("[Texte Français Original] :")
-    print(texte_francais.strip())
-    print("\n[Traduction Anglaise] :")
-    print(traduction)
+    print(f"[Ticket à analyser] : {ticket_texte}\n")
+    print("[Réponse brute du modèle] :")
+    print(json_brut)
     print("\n--------------------------------------------------")
 
-    return traduction
+    # Parsing et validation en Python
+    try:
+        cleaned_str = json_brut.replace("```json", "").replace("```", "").strip()
+        donnees = json.loads(cleaned_str)
+
+        categories_autorisees = {"réseau", "logiciel", "matériel", "sécurité", "accès", "autre"}
+        cat_obtenue = donnees.get("categorie")
+
+        if cat_obtenue in categories_autorisees:
+            print("[SUCCÈS] JSON valide et catégorie conforme :")
+            print(f" - Catégorie    : {cat_obtenue}")
+            print(f" - Justification: {donnees.get('justification')}")
+        else:
+            print(f"[ERREUR] Catégorie non autorisée reçue : '{cat_obtenue}'")
+
+        return donnees
+
+    except json.JSONDecodeError as e:
+        print(f"[ERREUR] Échec du parsing JSON : {e}")
+        return {}
 
 
 if __name__ == "__main__":
-    texte_fr = """
-    Rapport d'Évaluation de la Transformation Numérique - Q3 2026.
-    L'entreprise a initié un plan de modernisation de sa gestion relation client afin de réduire le temps de traitement des réclamations de 30% et d'augmenter le taux de satisfaction à 85%.
-    Au cours du troisième trimestre, les équipes ont déployé un nouvel outil d'IA pour le tri automatique des tickets support. Les données montrent une diminution effective du temps de réponse moyen de 48h à 12h, ainsi qu'une hausse du score de satisfaction client de 72% à 81%.
-    """
-
-    question_traduction_documentaire(texte_fr)
+    ticket_exemple = "Je n'arrive plus à accéder au serveur de l'entreprise depuis ce matin, ma session affiche 'mot de passe expiré'."
+    question_classification_ticket_it(ticket_exemple)

@@ -1,21 +1,24 @@
 import os
 import time
+import json
 from dotenv import load_dotenv
 from google import genai
 from google.genai.errors import APIError
 
+# Chargement des variables d'environnement
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Modèles valides sur la version actuelle du SDK Google GenAI
 MODELS = ["gemini-3.6-flash", "gemini-flash"]
+
 
 class MockResponse:
     def __init__(self, text):
         self.text = text
 
-def appeler_gemini(prompt):
-    """Appelle l'API Gemini et bascule en MOCK si les quotas ou modèles échouent."""
+
+def appeler_gemini(prompt: str):
+    """Effectue l'appel API avec secours Mock en cas de quota ou indisponibilité."""
     if api_key:
         client = genai.Client(api_key=api_key)
         for model_name in MODELS:
@@ -27,18 +30,18 @@ def appeler_gemini(prompt):
             except APIError as e:
                 print(f"[Avertissement API {e.code} sur {model_name}]")
                 if e.code == 429:
-                    print("-> Quota journalier atteint. Bascule vers la réponse MOCK...")
+                    print("-> Quota atteint. Bascule temporaire en mode MOCK.")
                     break
                 continue
             except Exception as e:
-                print(f"[Erreur : {e}]")
+                print(f"[Erreur API : {e}]")
                 break
 
-    # Secours automatique MOCK pour éviter de bloquer l'exécution du TP
-    print("[INFO] Utilisation du mode MOCK (Hors-Ligne) pour valider l'exécution.")
+    # Secours MOCK automatique
+    print("[INFO] Mode MOCK (Hors-Ligne) activé.")
     if "15 mots maximum" in prompt:
         return MockResponse("Échec intermittent du paiement par carte Visa lors de la transaction.")
-    else:
+    elif "GRILLE D'ÉVALUATION OBLIGATOIRE" in prompt:
         return MockResponse("""- Statut global : VALIDE
 - Détail du contrôle :
   - Informations non justifiées : SANS ANOMALIE
@@ -46,79 +49,102 @@ def appeler_gemini(prompt):
   - Informations absentes : SANS ANOMALIE
   - Hallucinations : AUCUNE
   - Respect des contraintes : RESPECTÉ
-- Conclusion : La réponse est exacte, fidèle au texte source et respecte la contrainte de concision.""")
+- Conclusion : La réponse est conforme.""")
+    else:
+        mock_json = {
+            "sentiment": "negatif",
+            "categorie": "livraison",
+            "urgence": "moyenne",
+            "probleme": "Retard de livraison",
+            "confiance": 0.91
+        }
+        return MockResponse(json.dumps(mock_json, ensure_ascii=False, indent=2))
 
 
-def executer_partie_3():
-    avis_client = "L'application est fluide mais le paiement par carte Visa échoue une fois sur deux."
+def valider_reponse_json(donnees: dict) -> tuple[bool, list[str]]:
+    """Vérifie le respect strict des règles métiers sur le dictionnaire JSON."""
+    erreurs = []
+    champs_autorises = {"sentiment", "categorie", "urgence", "probleme", "confiance"}
 
-    # ==================================================
-    # QUESTION 3.1 — PROMPT AVEC CONTRAINTES
-    # ==================================================
+    # 1. Propriétés supplémentaires
+    champs_extra = set(donnees.keys()) - champs_autorises
+    if champs_extra:
+        erreurs.append(f"Propriétés non autorisées : {champs_extra}")
+
+    # 2. Validation du sentiment
+    sentiments_valides = {"positif", "negatif", "neutre"}
+    if donnees.get("sentiment") not in sentiments_valides:
+        erreurs.append(f"Sentiment invalide : '{donnees.get('sentiment')}'")
+
+    # 3. Validation de l'urgence
+    urgences_valides = {"faible", "moyenne", "élevée"}
+    if donnees.get("urgence") not in urgences_valides:
+        erreurs.append(f"Urgence invalide : '{donnees.get('urgence')}'")
+
+    # 4. Validation de la confiance
+    confiance = donnees.get("confiance")
+    if not isinstance(confiance, (int, float)) or not (0.0 <= confiance <= 1.0):
+        erreurs.append(f"Confiance invalide : '{confiance}' (doit être un float entre 0 et 1)")
+
+    return len(erreurs) == 0, erreurs
+
+
+def question_structuration_avec_validation(commentaire_client: str):
+    """Analyse un commentaire et valide le JSON selon des règles strictes."""
     print("==================================================")
-    print("   QUESTION 3.1 : ANALYSE AVEC CONTRAINTES        ")
+    print("   QUESTION : STRUCTURATION ET VALIDATION JSON   ")
     print("==================================================\n")
 
-    prompt_q3_1 = f"""### TÂCHE
-Analyse l'avis client suivant et identifie le problème majeur rencontré.
+    prompt = f"""### TÂCHE
+Analyse le commentaire client ci-dessous et extrait les informations au format JSON STRICT.
 
-### AVIS CLIENT
-"{avis_client}"
+### COMMENTAIRE CLIENT
+"{commentaire_client}"
 
-### CONTRAINTES
-1. Rédige un résumé du problème en 15 mots maximum.
-2. Identifie clairement la fonctionnalité défaillante."""
+### SPÉCIFICATION DU FORMAT ET RÈGLES DE SORTIE
+Tu dois répondre UNIQUEMENT avec un objet JSON respectant STRICTEMENT les règles suivantes :
 
-    res_analyse = appeler_gemini(prompt_q3_1)
-    analyse_initiale = res_analyse.text.strip()
+1. Format JSON valide.
+2. AUCUNE propriété supplémentaire que les 5 clés spécifiées ci-dessous.
+3. "sentiment" : Valeurs autorisées uniquement : "positif", "negatif", "neutre".
+4. "urgence"   : Valeurs autorisées uniquement : "faible", "moyenne", "élevée".
+5. "confiance" : Nombre flottant obligatoirement compris entre 0.0 et 1.0.
+6. "categorie" : Exemples ("livraison", "produit", "service_client", "paiement").
+7. "probleme"  : Description succincte du problème (chaîne de caractères).
 
-    print(f"Avis original    : {avis_client}")
-    print(f"Analyse initiale : {analyse_initiale}\n")
+### CONTRAINTES STRICTES
+- Pas de texte explicatif avant ou après.
+- Pas de balises Markdown (ne pas utiliser ```json)."""
 
-    time.sleep(2)
+    res = appeler_gemini(prompt)
+    json_brut = res.text.strip()
 
-    # ==================================================
-    # QUESTION 3.2 — MÉTA-PROMPTING / AUTO-VÉRIFICATION
-    # ==================================================
-    print("==================================================")
-    print("   QUESTION 3.2 : MÉTA-PROMPTING / AUTO-VÉRIFICATION")
-    print("==================================================\n")
+    print(f"Commentaire analysé : {commentaire_client}\n")
+    print("[Réponse brute du modèle] :")
+    print(json_brut)
+    print("\n--------------------------------------------------")
 
-    prompt_q3_2_meta = f"""### RÔLE
-Tu es un auditeur de qualité et de conformité des réponses de LLM.
+    try:
+        cleaned_str = json_brut.replace("```json", "").replace("```", "").strip()
+        donnees = json.loads(cleaned_str)
+        print("[Étape 1] Format JSON valide : OK")
+    except json.JSONDecodeError as e:
+        print(f"[Étape 1 ERREUR] Parsing JSON impossible : {e}")
+        return {}
 
-### TÂCHE
-Examine la réponse produite par le modèle lors de la première étape par rapport au texte source et aux contraintes imposées.
+    est_valide, erreurs = valider_reponse_json(donnees)
+    if est_valide:
+        print("[Étape 2] Validation des règles métier : VALIDE\n")
+        for k, v in donnees.items():
+            print(f" - {k} : {v}")
+    else:
+        print("[Étape 2 ERREUR] Règles non respectées :")
+        for err in erreurs:
+            print(f"   ❌ {err}")
 
-### DONNÉES
-- **Texte source** : "{avis_client}"
-- **Contraintes initiales** : 15 mots maximum ET identification explicite de la fonctionnalité défaillante.
-- **Réponse à vérifier** : "{analyse_initiale}"
-
-### GRILLE D'ÉVALUATION OBLIGATOIRE
-Vérifie point par point et indique si des anomalies sont présentes :
-1. **Informations non justifiées** : Y a-t-il des éléments ajoutés sans preuve dans le texte source ?
-2. **Contradictions** : La réponse contredit-elle une partie du texte source ?
-3. **Informations absentes** : Un détail essentiel du problème a-t-il été omis ?
-4. **Éventuelles hallucinations** : Des faits imaginés ont-ils été introduits ?
-5. **Respect des contraintes** : Le nombre de mots (15 max) et l'identification de la fonctionnalité sont-ils respectés ?
-
-### FORMAT DE SORTIE EXIGÉ
-- **Statut global** : [VALIDE / INVALIDE]
-- **Détail du contrôle** :
-  - Informations non justifiées : [SANS ANOMALIE / ANOMALIE DÉTECTÉE + détail]
-  - Contradictions : [SANS ANOMALIE / ANOMALIE DÉTECTÉE + détail]
-  - Informations absentes : [SANS ANOMALIE / ANOMALIE DÉTECTÉE + détail]
-  - Hallucinations : [AUCUNE / DÉTECTÉE + détail]
-  - Respect des contraintes : [RESPECTÉ / NON RESPECTÉ + détail]
-- **Conclusion** : [Brève synthèse en 1 à 2 phrases]"""
-
-res_meta = appeler_gemini(prompt_q3_2_meta)
-
-    print("[Résultat de l'auto-vérification par Méta-prompting] :\n")
-    print(res_meta.text.strip())
-    print("\n==================================================")
+    return donnees
 
 
 if __name__ == "__main__":
-    executer_partie_3()
+    commentaire = "Le commentaire semble plutôt négatif. Le client est mécontent du délai de livraison..."
+    question_structuration_avec_validation(commentaire)

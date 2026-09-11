@@ -38,16 +38,21 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "EXTRACTION DE DONNÉES DE FACTURE" in prompt:
-        mock_facture = {
-            "numéro_facture": "FAC-2026-0042",
-            "date": "2026-09-10",
-            "client": "Société West Africa Retail",
-            "montant_ht": 1500000.0,
-            "tva": 270000.0,
-            "montant_ttc": 1770000.0
-        }
-        return MockResponse(json.dumps(mock_facture, ensure_ascii=False, indent=2))
+    if "RÉDACTION D'EMAIL CLIENT" in prompt or "retard de livraison" in prompt:
+        return MockResponse("""Objet : Information concernant la livraison de votre commande
+
+Bonjour,
+
+Nous tenons à vous informer que la livraison de votre commande subit un retard par rapport au délai initialement prévu. Nous vous présentons nos plus sincères excuses pour cette gêne occasionnée.
+
+Ce contretemps est lié à un ralentissement imprévu dans l'acheminement logistique de votre colis. Nos équipes suivent la situation de très près afin de débloquer l'envoi dans les meilleurs délais.
+
+Afin de vous assurer un suivi optimal, nous vous offrons les frais de livraison sur cette commande et vous transmettrons un nouveau lien de suivi dès demain matin.
+
+Nous vous remercions pour votre compréhension et restons à votre entière disposition.
+
+Cordialement,
+Le Service Client""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -60,77 +65,50 @@ def appeler_gemini(prompt: str):
 
 
 # ==============================================================================
-# PARTIE 5.4 : EXTRACTION DE DONNÉES DE FACTURE (JSON)
+# PARTIE 5.5 : RÉDACTION D'EMAIL RETARD DE LIVRAISON
 # ==============================================================================
 
-def question_extraction_facture(texte_facture: str) -> dict:
+def question_email_retard_livraison(nom_client: str, numero_commande: str) -> str:
     """
-    Extrait les données clés d'une facture sous forme de JSON strict.
-    Utilise 'null' pour toute valeur manquante.
+    Génère un email professionnel pour informer un client d'un retard de livraison
+    en respectant les contraintes de contenu, de ton et de longueur.
     """
     print("==================================================")
-    print("   PARTIE 5.4 : EXTRACTION DE FACTURE (JSON)      ")
+    print("   PARTIE 5.5 : EMAIL CLIENT - RETARD LIVRAISON   ")
     print("==================================================\n")
 
-    prompt = f"""### TÂCHE : EXTRACTION DE DONNÉES DE FACTURE
-Analyse le texte de la facture ci-dessous et extrais les informations clés sous forme de JSON strict.
+    prompt = f"""### TÂCHE : RÉDACTION D'EMAIL CLIENT
+Rédige un courriel professionnel destiné au client "{nom_client}" concernant le retard de livraison de sa commande n° "{numero_commande}".
 
-### TEXTE DE LA FACTURE
-"{texte_facture}"
+### OBJECTIFS OBLIGATOIRES À REMPLIR
+1. Reconnaître explicitement le retard de la livraison.
+2. Présenter des excuses sincères au client.
+3. Expliquer brièvement la situation SANS inventer de cause fictive ou de détails non vérifiables (mentionner un retard d'acheminement logistique).
+4. Proposer une solution concrète (suivi prioritaire, geste commercial ou assistance dédiée).
 
-### CHAMPS À EXTRAIRE
-Tu dois extraire EXACTEMENT les clés suivantes :
-1. "numéro_facture" : Le numéro ou la référence de la facture (string ou null).
-2. "date"           : La date d'émission de la facture (string ou null).
-3. "client"         : Le nom ou la raison sociale du client (string ou null).
-4. "montant_ht"     : Le montant hors taxes (nombre ou null).
-5. "tva"            : Le montant de la TVA (nombre ou null).
-6. "montant_ttc"    : Le montant toutes taxes comprises (nombre ou null).
+### TON ET STYLE EXIGÉS
+- Ton : Professionnel, courtois et rassurant.
+- Style : Empathique et orienté solution.
 
-### RÈGLES STRICTES
-- Si une information n'est pas présente ou incertaine dans la facture, attribue-lui la valeur JSON `null`.
-- Conserve le format numérique (float/int) pour `montant_ht`, `tva` et `montant_ttc` si disponibles.
-- Renvoie UNIQUEMENT l'objet JSON valide, sans aucune phrase d'introduction ni de conclusion.
-- N'utilise pas de balises Markdown (pas de ```json)."""
+### CONTRAINTES DE LONGUEUR ET FORMAT
+- Longueur : 150 mots MAXIMUM pour l'ensemble de l'email.
+- Structure : Un objet de mail, une salutation, le corps du texte et une formule de politesse.
+- Réponds directement en français avec le texte de l'email."""
 
     res = appeler_gemini(prompt)
-    json_brut = res.text.strip()
+    email_redige = res.text.strip()
 
-    print(f"[Texte Facture Analysé] :\n{texte_facture}\n")
-    print("[Réponse brute du modèle] :")
-    print(json_brut)
+    print(f"[Informations Client] : {nom_client} | Commande n° {numero_commande}\n")
+    print("[Email Généré] :")
+    print(email_redige)
     print("\n--------------------------------------------------")
 
-    # Parsing et validation
-    try:
-        cleaned_str = json_brut.replace("```json", "").replace("```", "").strip()
-        donnees = json.loads(cleaned_str)
+    # Contrôle applicatif du nombre de mots
+    nb_mots = len(email_redige.split())
+    print(f"[Contrôle Longueur] : {nb_mots} mots (Limite : 150 mots max)")
 
-        champs_attendus = {"numéro_facture", "date", "client", "montant_ht", "tva", "montant_ttc"}
-        if set(donnees.keys()) == champs_attendus:
-            print("[SUCCÈS] JSON extrait avec la structure exacte requise :\n")
-            for k, v in donnees.items():
-                print(f" - {k} : {v}")
-        else:
-            print(f"[ATTENTION] Clés différentes de la structure attendue : {list(donnees.keys())}")
-
-        return donnees
-
-    except json.JSONDecodeError as e:
-        print(f"[ERREUR] Parsing JSON impossible : {e}")
-        return {}
+    return email_redige
 
 
 if __name__ == "__main__":
-    facture_exemple = """
-    FACTURE N° FAC-2026-0042
-    Date : 10/09/2026
-    Client : Société West Africa Retail
-    
-    Désignation : Prestation d'analyse de données financières
-    Montant HT : 1 500 000 XOF
-    TVA (18%) : 270 000 XOF
-    Montant TTC : 1 770 000 XOF
-    """
-
-    question_extraction_facture(facture_exemple)
+    question_email_retard_livraison("Mme Diallo", "CMD-2026-8891")

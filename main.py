@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai.errors import APIError
 
-# Chargement des variables d'environnement (.env)
+# Chargement des variables d'environnement
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -17,7 +17,7 @@ class MockResponse:
 
 
 def appeler_gemini(prompt: str):
-    """Effectue l'appel API avec secours Mock en cas de quota ou d'indisponibilité."""
+    """Effectue l'appel API avec secours Mock en cas de quota ou indisponibilité."""
     if api_key:
         client = genai.Client(api_key=api_key)
         for model_name in MODELS:
@@ -38,21 +38,10 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "RÉSUMÉ DE DOCUMENT" in prompt or "250 mots MAXIMUM" in prompt:
-        return MockResponse("""**1. Objectifs**
-- Réduire le temps de traitement des réclamations de 30%.
-- Porter le taux de satisfaction client à 85%.
-
-**2. Résultats**
-- Déploiement d'un outil d'IA de tri automatique au Q3.
-- Baisse du temps de réponse moyen de 48h à 12h.
-- Progression du score de satisfaction de 72% à 81%.
-- Taux d'adoption limité à 60% en raison d'un déficit de formation.
-
-**3. Recommandations**
-- Dispenser une formation obligatoire de deux semaines aux agents.
-- Mettre à jour le guide utilisateur interne.
-- Suivre chaque semaine les indicateurs d'adoption.""")
+    if "TRADUCTION DE DOCUMENT" in prompt:
+        return MockResponse("""Digital Transformation Assessment Report - Q3 2026.
+The company initiated a customer relationship management modernization plan to reduce claims processing time by 30% and increase the satisfaction rate to 85%.
+During the third quarter, teams deployed a new AI tool for automatic support ticket sorting. Data shows an effective reduction in average response time from 48h to 12h, as well as an increase in customer satisfaction score from 72% to 81%.""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -65,64 +54,55 @@ def appeler_gemini(prompt: str):
 
 
 # ==============================================================================
-# PARTIE 5.1 : RÉSUMÉ DE DOCUMENT MÉTIER
+# PARTIE 5.2 : TRADUCTION TECHNIQUE AVEC CONTRAINTES STRICTES
 # ==============================================================================
 
-def question_resume_documentaire(document_texte: str) -> str:
+def question_traduction_documentaire(texte_francais: str) -> str:
     """
-    Rédige un résumé structuré d'un document métier respectant les contraintes :
-    - Maximum 250 mots
-    - Informations factuelles uniquement (aucune invention)
-    - Identification des objectifs, résultats et recommandations
+    Traduit un document du français vers l'anglais en respectant :
+    - Conservation du sens
+    - Conservation de la structure
+    - Conservation des termes techniques
+    - Interdiction de résumer
+    - Interdiction d'ajouter des informations
     """
     print("==================================================")
-    print("   PARTIE 5.1 : RÉSUMÉ DE DOCUMENT MÉTIER         ")
+    print("   PARTIE 5.2 : TRADUCTION TECHNIQUE (FR -> EN)   ")
     print("==================================================\n")
 
-    prompt = f"""### TÂCHE
-Rédige un résumé analytique du document ci-dessous en respectant scrupuleusement les contraintes métiers.
+    prompt = f"""### TÂCHE : TRADUCTION DE DOCUMENT
+Traduis l'intégralité du texte ci-dessous du français vers l'anglais professionnel.
 
-### DOCUMENT À RÉSUMER
-"{document_texte}"
+### TEXTE SOURCE (FRANÇAIS)
+"{texte_francais}"
 
-### CONTRAINTES DE RÉDACTION
-1. Longueur : 250 mots MAXIMUM.
-2. Exactitude : Conserve uniquement les informations factuelles présentes dans le texte.
-3. Factuality : N'invente AUCUNE information et n'ajoute pas de suppositions (zéro hallucination).
+### CONTRAINTES STRICTES DE TRADUCTION
+1. Conservations du sens : Traduis avec exactitude en restituant fidèlement toutes les nuances.
+2. Conservation de la structure : Conserve la même disposition (paragraphes, puces, saut de ligne).
+3. Termes techniques : Conserve la terminologie technique et métier exacte (ex: terminologie IT/Finance).
+4. Ne pas résumer : Traduis l'intégralité du texte sans omission ni condensation.
+5. Ne rien ajouter : N'ajoute aucune explication, commentaire ou information absente du texte original.
 
-### STRUCTURE OBLIGATOIRE DU RÉSUMÉ
-Organise ta réponse avec la structure suivante :
-
-1. **Objectifs** : Quels sont les buts ou la finalité visés dans le document ?
-2. **Résultats** : Quels sont les constatations, chiffres clés ou faits observés sous forme de phrases?
-3. **Recommandations** : Quelles sont les préconisations ou actions suggérées ?
-
-### EXIGENCES DE FORMAT
-Réponds directement en français avec la structure demandée, sans texte d'introduction inutile."""
+### CONTRAINTE DE FORMAT
+Réponds UNIQUEMENT avec le texte traduit en anglais, sans texte d'introduction ni de conclusion."""
 
     res = appeler_gemini(prompt)
-    resume = res.text.strip()
+    traduction = res.text.strip()
 
-    print("[Texte original] :")
-    print(document_texte.strip()[:200] + "... [tronqué]\n")
-    print("[Résumé généré] :")
-    print(resume)
+    print("[Texte Français Original] :")
+    print(texte_francais.strip())
+    print("\n[Traduction Anglaise] :")
+    print(traduction)
     print("\n--------------------------------------------------")
 
-    # Contrôle applicatif du nombre de mots
-    nb_mots = len(resume.split())
-    print(f"[Contrôle Longueur] : {nb_mots} mots (Limite : 250 mots max)")
-
-    return resume
+    return traduction
 
 
 if __name__ == "__main__":
-    document_exemple = """
+    texte_fr = """
     Rapport d'Évaluation de la Transformation Numérique - Q3 2026.
     L'entreprise a initié un plan de modernisation de sa gestion relation client afin de réduire le temps de traitement des réclamations de 30% et d'augmenter le taux de satisfaction à 85%.
     Au cours du troisième trimestre, les équipes ont déployé un nouvel outil d'IA pour le tri automatique des tickets support. Les données montrent une diminution effective du temps de réponse moyen de 48h à 12h, ainsi qu'une hausse du score de satisfaction client de 72% à 81%.
-    Toutefois, le taux d'adoption par le personnel du service client reste limité à 60% en raison d'un manque de formation initiale.
-    Il est vivement recommandé d'organiser un programme de formation obligatoire de deux semaines pour l'ensemble des agents, de mettre à jour le guide utilisateur interne, et d'effectuer un suivi hebdomadaire des indicateurs d'utilisation jusqu'à la fin de l'année.
     """
 
-    question_resume_documentaire(document_exemple)
+    question_traduction_documentaire(texte_fr)

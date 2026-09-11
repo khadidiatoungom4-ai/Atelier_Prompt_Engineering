@@ -113,7 +113,7 @@ Vérifie point par point et indique si des anomalies sont présentes :
   - Respect des contraintes : [RESPECTÉ / NON RESPECTÉ + détail]
 - **Conclusion** : [Brève synthèse en 1 à 2 phrases]"""
 
-    res_meta = appeler_gemini(prompt_q3_2_meta)
+res_meta = appeler_gemini(prompt_q3_2_meta)
 
     print("[Résultat de l'auto-vérification par Méta-prompting] :\n")
     print(res_meta.text.strip())

@@ -1,7 +1,10 @@
 import os
+import time
 from dotenv import load_dotenv
 from google import genai
+from google.genai.errors import APIError
 
+# Chargement de la clé API depuis le fichier .env
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -9,40 +12,58 @@ if not api_key:
     raise ValueError("Erreur : La clé GEMINI_API_KEY n'est pas définie dans le fichier .env")
 
 client = genai.Client(api_key=api_key)
-MODEL_NAME = "gemini-3.6-flash"
 
+# Modèles actualisés selon la réponse de l'API
+MODELS = ["gemini-3.6-flash", "gemini-2.5-flash"]
+
+def appeler_gemini(prompt, max_retries=3):
+    """Appelle l'API via l'interface Chat recommandée pour éviter le warning AFC."""
+    last_exception = None
+    
+    for model_name in MODELS:
+        for attempt in range(max_retries):
+            try:
+                # Utilisation de l'API Chat recommandée
+                chat = client.chats.create(model=model_name)
+                response = chat.send_message(prompt)
+                return response
+            except APIError as e:
+                last_exception = e
+                if e.code == 503:
+                    time.sleep(2)
+                elif e.code in (404, 403):
+                    break  # Passer au modèle suivant
+                else:
+                    time.sleep(1)
+            except Exception as e:
+                last_exception = e
+                break
+
+    raise RuntimeError(f"Échec de l'appel API. Dernier message d'erreur : {last_exception}")
+
+
+# Donnée d'entrée
+avis_client = "L'application est fluide mais le paiement par carte Visa échoue une fois sur deux."
+
+
+# ==================================================
+# QUESTION 3.1 — ANALYSE INITIALE DU PROBLÈME
+# ==================================================
 print("==================================================")
-print("   PARTIE 2 — TECHNIQUE 4 : PROMPT STRUCTURÉ      ")
+print("   QUESTION 3.1 : ANALYSE INITIALE                ")
 print("==================================================\n")
 
-commentaire = "Le service est rapide mais l'application plante régulièrement."
+prompt_q3_1 = f"""### TÂCHE
+ Analyse ces avis clients et donne-moi les problèmes les plus importants ainsi que les recommandations. .
 
-# Prompt structuré par blocs avec règles de gestion des avis mitigés
-prompt_structure = f"""### RÔLE
-Tu es un système automatisé de classification de sentiments pour une application mobile.
+### AVIS CLIENT
+"{avis_client}"
 
-### CONTEXTE
-Analyse des retours utilisateurs pour prioriser les corrections techniques et l'amélioration de l'expérience client.
+### CONTRAINTE
+Rédige un résumé du problème sous forme de tableau."""
 
-### TÂCHE
-Classer le commentaire fourni ci-dessous dans l'une des trois catégories : positif, négatif ou neutre.
+res_analyse = appeler_gemini(prompt_q3_1)
+analyse_initiale = res_analyse.text.strip()
 
-### DONNÉE D'ENTRÉE
-Commentaire : "{commentaire}"
-
-### CONSIGNES ET REGLES D'ARBITRAGE
-- Si l'avis contient à la fois des éléments positifs et négatifs :
-  1. Si le problème technique bloque l'usage principal (ex: plantage), privilégie la classe **négatif**.
-  2. Si les deux aspects s'équilibrent parfaitement sans blocage majeur, classe en **neutre**.
-- Ne génère aucun texte d'explication, ni d'introduction, ni de ponctuation inutile.
-
-### FORMAT DE SORTIE ATTENDU
-Réponds uniquement par un seul mot en minuscules : positif, négatif ou neutre."""
-
-response = client.models.generate_content(
-    model=MODEL_NAME,
-    contents=prompt_structure
-)
-
-print(f"Résultat Prompt Structuré :\n{response.text.strip()}")
-print("\n==================================================")
+print(f"Avis original    : {avis_client}")
+print(f"Analyse initiale : {analyse_initiale}\n")

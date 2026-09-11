@@ -12,33 +12,37 @@ client = genai.Client(api_key=api_key)
 MODEL_NAME = "gemini-3.6-flash"
 
 print("==================================================")
-print("   PARTIE 2 — TECHNIQUE 3 : FEW-SHOT              ")
+print("   PARTIE 2 — TECHNIQUE 4 : PROMPT STRUCTURÉ      ")
 print("==================================================\n")
 
 commentaire = "Le service est rapide mais l'application plante régulièrement."
 
-# Plusieurs exemples couvrant chaque classe
-prompt_fewshot = f"""Classer le commentaire suivant selon les classes (positif, négatif, neutre).
+# Prompt structuré par blocs avec règles de gestion des avis mitigés
+prompt_structure = f"""### RÔLE
+Tu es un système automatisé de classification de sentiments pour une application mobile.
 
-Exemple 1 :
-Commentaire : "J'adore cette application, elle est extrêmement rapide et fluide !"
-Classe : positif
+### CONTEXTE
+Analyse des retours utilisateurs pour prioriser les corrections techniques et l'amélioration de l'expérience client.
 
-Exemple 2 :
-Commentaire : "L'interface a changé de couleur, c'est différent d'avant."
-Classe : neutre
+### TÂCHE
+Classer le commentaire fourni ci-dessous dans l'une des trois catégories : positif, négatif ou neutre.
 
-Exemple 3 :
-Commentaire : "Le service client ne répond jamais et le paiement échoue systématiquement."
-Classe : négatif
-
+### DONNÉE D'ENTRÉE
 Commentaire : "{commentaire}"
-Classe :"""
+
+### CONSIGNES ET REGLES D'ARBITRAGE
+- Si l'avis contient à la fois des éléments positifs et négatifs :
+  1. Si le problème technique bloque l'usage principal (ex: plantage), privilégie la classe **négatif**.
+  2. Si les deux aspects s'équilibrent parfaitement sans blocage majeur, classe en **neutre**.
+- Ne génère aucun texte d'explication, ni d'introduction, ni de ponctuation inutile.
+
+### FORMAT DE SORTIE ATTENDU
+Réponds uniquement par un seul mot en minuscules : positif, négatif ou neutre."""
 
 response = client.models.generate_content(
     model=MODEL_NAME,
-    contents=prompt_fewshot
+    contents=prompt_structure
 )
 
-print(f"Résultat Few-shot :\n{response.text.strip()}")
+print(f"Résultat Prompt Structuré :\n{response.text.strip()}")
 print("\n==================================================")

@@ -38,21 +38,28 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "RÉDACTION D'EMAIL CLIENT" in prompt or "retard de livraison" in prompt:
-        return MockResponse("""Objet : Information concernant la livraison de votre commande
+    if "STRATÉGIES DE PRÉTRAITEMENT DATASET CAPTEURS" in prompt:
+        return MockResponse("""### STRATÉGIES DE PRÉTRAITEMENT DES DONNÉES CAPTEURS
 
-Bonjour,
+1. **Valeurs manquantes**
+   - **Détection** : Contrôle de nullité (`isna()`), détection d'interruption dans les séries temporelles.
+   - **Traitement** : Interpolation temporelle linéaire ou spline pour courtes coupures ; imputation par filtre de Kalman pour les longues séries.
+   - **Risques** : Biais d'interpolation si la panne du capteur correspond à un incident critique.
 
-Nous tenons à vous informer que la livraison de votre commande subit un retard par rapport au délai initialement prévu. Nous vous présentons nos plus sincères excuses pour cette gêne occasionnée.
+2. **Doublons**
+   - **Détection** : Reconstitution de clés primaires composite `(sensor_id, timestamp)`.
+   - **Traitement** : Déduplication en conservant la première mesure ou agrégation par moyenne si décalage inférieur à 10ms.
+   - **Risques** : Suppression de renvois légitimes en cas d'horodatage imprécis.
 
-Ce contretemps est lié à un ralentissement imprévu dans l'acheminement logistique de votre colis. Nos équipes suivent la situation de très près afin de débloquer l'envoi dans les meilleurs délais.
+3. **Valeurs aberrantes (Outliers)**
+   - **Détection** : Écart-type mobiles (Z-Score > 3), test d'Isolation Forest ou seuils physiques d'équipement.
+   - **Traitement** : Écrestage (winsorisation), lissage par moyenne glissante ou remplacement par la médiane locale.
+   - **Risques** : Masquage d'anomalies réelles ou de pannes imminentes masquées en tant qu'aberrations.
 
-Afin de vous assurer un suivi optimal, nous vous offrons les frais de livraison sur cette commande et vous transmettrons un nouveau lien de suivi dès demain matin.
-
-Nous vous remercions pour votre compréhension et restons à votre entière disposition.
-
-Cordialement,
-Le Service Client""")
+4. **Variables catégorielles**
+   - **Détection** : Vérification des statuts de capteurs (`OK`, `FAULT`, `CALIBRATION`) et identifiants matériels.
+   - **Traitement** : Encodage One-Hot pour catégories nominales ; Target/Ordinal Encoding pour statuts d'erreur hiérarchisés.
+   - **Risques** : Explosion de la dimensionnalité si le nombre d'identifiants de capteurs est trop élevé.""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -65,50 +72,74 @@ Le Service Client""")
 
 
 # ==============================================================================
-# PARTIE 5.5 : RÉDACTION D'EMAIL RETARD DE LIVRAISON
+# PARTIE 5.6 : STRATÉGIES DE PRÉTRAITEMENT DE DATASET CAPTEURS
 # ==============================================================================
 
-def question_email_retard_livraison(nom_client: str, numero_commande: str) -> str:
+def question_strategie_nettoyage_capteurs(description_dataset: str) -> str:
     """
-    Génère un email professionnel pour informer un client d'un retard de livraison
-    en respectant les contraintes de contenu, de ton et de longueur.
+    Génère un plan stratégique complet pour le traitement des données capteurs :
+    - Valeurs manquantes
+    - Doublons
+    - Valeurs aberrantes
+    - Variables catégorielles
     """
     print("==================================================")
-    print("   PARTIE 5.5 : EMAIL CLIENT - RETARD LIVRAISON   ")
+    print("   PARTIE 5.6 : STRATÉGIES PRÉTRAITEMENT CAPTEURS ")
     print("==================================================\n")
 
-    prompt = f"""### TÂCHE : RÉDACTION D'EMAIL CLIENT
-Rédige un courriel professionnel destiné au client "{nom_client}" concernant le retard de livraison de sa commande n° "{numero_commande}".
+    prompt = f"""### TÂCHE : STRATÉGIES DE PRÉTRAITEMENT DATASET CAPTEURS
+En vous basant sur la description du dataset de capteurs ci-dessous, propose un plan stratégique détaillé pour la préparation et le nettoyage des données avant modélisation.
 
-### OBJECTIFS OBLIGATOIRES À REMPLIR
-1. Reconnaître explicitement le retard de la livraison.
-2. Présenter des excuses sincères au client.
-3. Expliquer brièvement la situation SANS inventer de cause fictive ou de détails non vérifiables (mentionner un retard d'acheminement logistique).
-4. Proposer une solution concrète (suivi prioritaire, geste commercial ou assistance dédiée).
+### DESCRIPTION DU DATASET CAPTEURS
+"{description_dataset}"
 
-### TON ET STYLE EXIGÉS
-- Ton : Professionnel, courtois et rassurant.
-- Style : Empathique et orienté solution.
+### EXIGENCES DE CONTENU
+Pour CHAQUENNE des 4 problématiques suivantes, tu dois détailler la stratégie en 3 axes précis :
+1. **Valeurs manquantes**
+   - Détection : Méthodes de repérage adaptées aux séries temporelles/capteurs.
+   - Traitement : Techniques recommandées (imputation, interpolation, suppression).
+   - Risques associés : Effets de la stratégie choisie sur le modèle ou les analyses.
 
-### CONTRAINTES DE LONGUEUR ET FORMAT
-- Longueur : 150 mots MAXIMUM pour l'ensemble de l'email.
-- Structure : Un objet de mail, une salutation, le corps du texte et une formule de politesse.
-- Réponds directement en français avec le texte de l'email."""
+2. **Doublons**
+   - Détection : Identification des répétitions d'horodatage ou de mesures identiques.
+   - Traitement : Stratégie de déduplication ou d'agrégation.
+   - Risques associés : Perte d'information critique ou distorsion des fréquences d'échantillonnage.
+
+3. **Valeurs aberrantes (Outliers)**
+   - Détection : Méthodes statistiques ou algorithmiques (Z-score, IQR, Isolation Forest, seuils physiques).
+   - Traitement : Stratégies de filtrage, écrestage ou remplacement.
+   - Risques associés : Masquage de vrais signaux d'alerte ou conservation de bruits de mesure.
+
+4. **Variables catégorielles**
+   - Détection : Repérage des variables qualitatives (ex: état du capteur, localisation, modèle).
+   - Traitement : Encodage adapté (One-Hot Encoding, Ordinal Encoding, Target Encoding).
+   - Risques associés : Explosion de la dimensionnalité ou création de relations d'ordre artificielles.
+
+### FORMAT DE SORTIE
+Structure la réponse de manière claire avec des titres explicites et des points à puces pour chaque section."""
 
     res = appeler_gemini(prompt)
-    email_redige = res.text.strip()
+    strategie = res.text.strip()
 
-    print(f"[Informations Client] : {nom_client} | Commande n° {numero_commande}\n")
-    print("[Email Généré] :")
-    print(email_redige)
+    print(f"[Description du dataset fourni] :\n{description_dataset}\n")
+    print("[Stratégie proposée] :")
+    print(strategie)
     print("\n--------------------------------------------------")
 
-    # Contrôle applicatif du nombre de mots
-    nb_mots = len(email_redige.split())
-    print(f"[Contrôle Longueur] : {nb_mots} mots (Limite : 150 mots max)")
-
-    return email_redige
+    return strategie
 
 
 if __name__ == "__main__":
-    question_email_retard_livraison("Mme Diallo", "CMD-2026-8891")
+    dataset_capteurs_info = """
+    Dataset télémetrique de 50 capteurs d'une chaîne d'assemblage industrielle.
+    Variables enregistrées toutes les secondes :
+    - timestamp (datetime)
+    - sensor_id (string : ex: "SENS_001")
+    - temperature (float : °C)
+    - pression (float : bar)
+    - vitesse_rotation (float : RPM)
+    - status_capteur (string : "OK", "WARNING", "ERROR", "CALIBRATION")
+    - emplacement (string : "Zone_A", "Zone_B", "Zone_C")
+    """
+
+    question_strategie_nettoyage_capteurs(dataset_capteurs_info)

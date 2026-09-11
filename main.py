@@ -38,32 +38,36 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "VISUALISATIONS ENERGÉTIQUES" in prompt or "consommation énergétique" in prompt:
-        return MockResponse("""### PROPOSITION DE VISUALISATIONS ÉNERGÉTIQUES
+    if "MODÈLES DE PRÉDICTION ÉNERGÉTIQUE" in prompt or "prédiction de la consommation" in prompt:
+        return MockResponse("""### RECOMMANDATION DE MODÈLES DE PRÉDICTION ÉNERGÉTIQUE
 
-1. **Courbe de charge temporelle (TimeSeries Line Chart)**
-   - **Type de graphique** : Graphique linéaire temporel.
-   - **Variables utilisées** : X = `timestamp` (heure/jour), Y = `puissance_kw` ou `consommation_kwh`.
-   - **Objectif** : Analyser le profil de consommation au cours du temps et identifier les pics de charge.
-   - **Interprétation attendue** : Visualiser les périodes de pointe (ex: 09h-18h), vérifier le talon de consommation nocturne et détecter les anomalies de fonctionnement hors heures ouvrées.
+1. **XGBoost / LightGBM (Gradient Boosted Decision Trees)**
+   - **Type de problème** : Régression supervisée sur données tabulaires / caractéristiques temporelles créées (lags, variables calendaires).
+   - **Principe** : Enchaînement séquentiel d'arbres de décision faibles où chaque nouvel arbre corrige les erreurs d'invalidation des précédents.
+   - **Avantages** : Performances de pointe sur données tabulaires, gestion native des non-linéarités et interactions complexes entre variables (ex: météo vs occupation).
+   - **Limites** : Sensible au surapprentissage si mal réglé ; nécessite de créer manuellement les variables de décalage temporel (lags).
+   - **Métriques pertinentes** : RMSE, MAE, R², MAPE.
 
-2. **Carte thermique temporelle (Heatmap Heure x Jour)**
-   - **Type de graphique** : Heatmap (Carte de chaleur 2D).
-   - **Variables utilisées** : X = `heure_de_la_journée` (0 à 23h), Y = `jour_de_la_semaine` (Lundi au Dimanche), Couleur = `consommation_kwh`.
-   - **Objectif** : Identifier les motifs récurrents de surconsommation selon l'heure et le jour.
-   - **Interprétation attendue** : Repérer les dérives de consommation durant le week-end ou la nuit et cibler les plages horaires nécessitant une régulation CVC (chauffage/climatisation).
+2. **Random Forest Regressor**
+   - **Type de problème** : Régression supervisée (Ensemble Learning).
+   - **Principe** : Agrégation en parallèle (bagging) de multiples arbres de décision entraînés sur des sous-échantillons bootstrap du jeu de données.
+   - **Avantages** : Robuste au surapprentissage et aux bruits de mesure des capteurs ; fournit une mesure explicite de l'importance des variables.
+   - **Limites** : Incapable d'extrapoler des tendances au-delà des valeurs observées dans l'ensemble d'entraînement ; temps de prédiction plus élevé que les modèles linéaires.
+   - **Métriques pertinentes** : RMSE, MAE, R².
 
-3. **Nuage de points de régression (Scatter Plot avec ligne de tendance)**
-   - **Type de graphique** : Nuage de points (Scatter Plot).
-   - **Variables utilisées** : X = `temperature_exterieure_C`, Y = `consommation_kwh`, Couleur/Taille = `humidite_pct` ou `zone_batiment`.
-   - **Objectif** : Évaluer la sensibilité de la consommation aux conditions météorologiques extérieures (Courbe en V / Signature énergétique).
-   - **Interprétation attendue** : Déterminer la température de neutralité thermique du bâtiment et mesurer la performance de l'isolation thermique.
+3. **LSTM / GRU (Réseaux de Nerf Récurrents - Deep Learning)**
+   - **Type de problème** : Régression sur séries temporelles séquentielles (Time Series Forecasting).
+   - **Principe** : Utilisation de mécanismes de portes mémoire pour capturer les dépendances temporelles à long terme et les récurrences cycliques.
+   - **Avantages** : Modélise directement la dynamicité temporelle sans ingénierie complexe de variables décalées ; excelle sur les jeux de données volumineux.
+   - **Limites** : Nécessite un grand volume de données et des ressources de calcul importantes (GPU) ; boîte noire difficile à interpréter.
+   - **Métriques pertinentes** : RMSE, MAE, MAPE.
 
-4. **Diagramme en barres empilées par zone/usage (Stacked Bar Chart)**
-   - **Type de graphique** : Diagramme en barres empilées.
-   - **Variables utilisées** : X = `mois` ou `étage`, Y = `consommation_kwh`, Empilement = `type_usage` (Éclairage, CVC, Prises, Ascenseurs).
-   - **Objectif** : Décomposer la consommation globale par poste de dépense et par zone.
-   - **Interprétation attendue** : Identifier les équipements ou zones les plus budgétivores pour prioriser les actions d'efficacité énergétique.""")
+4. **Régression Ridge / Lasso (Modèles Linéaires Régularisés)**
+   - **Type de problème** : Régression linéaire régularisée.
+   - **Principe** : Modèle linéaire pénalisant les grands coefficients (L2 pour Ridge, L1 pour Lasso) pour éviter le surapprentissage.
+   - **Avantages** : Très rapide à entraîner, fortement interprétable (coefficients explicites), parfait comme baseline de comparaison.
+   - **Limites** : Ne capture pas naturellement les relations non linéaires complexes sans transformation de variables.
+   - **Métriques pertinentes** : MAE, R².""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -76,43 +80,45 @@ def appeler_gemini(prompt: str):
 
 
 # ==============================================================================
-# PARTIE 5.7 : VISUALISATIONS DE LA CONSOMMATION ÉNERGÉTIQUE
+# PARTIE 5.8 : PROPOSITION DE MODÈLES DE PRÉDICTION ÉNERGÉTIQUE
 # ==============================================================================
 
-def question_visualisations_energetiques(description_dataset: str) -> str:
+def question_modeles_prediction_energetique(description_dataset: str) -> str:
     """
-    Propose un ensemble de visualisations clés pour analyser la consommation
-    énergétique d'un bâtiment à partir des données de capteurs.
+    Propose des modèles de Machine Learning / Deep Learning adaptés à la prédiction
+    de la consommation énergétique en détaillant principe, avantages, limites,
+    type de problème et métriques.
     """
     print("==================================================")
-    print("   PARTIE 5.7 : VISUALISATIONS CONSOMMATION ÉNERGÉTIQUE ")
+    print("   PARTIE 5.8 : MODÈLES DE PRÉDICTION ÉNERGÉTIQUE  ")
     print("==================================================\n")
 
-    prompt = f"""### TÂCHE : VISUALISATIONS ÉNERGÉTIQUES BÂTIMENT
-En te basant sur la description du dataset de capteurs ci-dessous, propose les visualisations les plus pertinentes pour comprendre et analyser la consommation énergétique du bâtiment.
+    prompt = f"""### TÂCHE : MODÈLES DE PRÉDICTION ÉNERGÉTIQUE
+En te basant sur la description du dataset de capteurs ci-dessous, propose 3 à 5 modèles d'apprentissage automatique (Machine Learning / Deep Learning) adaptés à la prédiction de la consommation énergétique d'un bâtiment.
 
 ### DESCRIPTION DU DATASET CAPTEURS
 "{description_dataset}"
 
 ### EXIGENCES DE CONTENU
-Pour CHAQUE visualisation proposée (propose 3 à 5 visualisations clés), tu dois systématiquement fournir :
-1. **Type de graphique** : Le type exact de diagramme/chart recommandé (ex: Heatmap, Scatter plot, Line chart, etc.).
-2. **Variables utilisées** : Les variables du dataset associées aux axes (X, Y, couleurs, filtres).
-3. **Objectif** : Le but analytique ou la question métier à laquelle répond la visualisation.
-4. **Interprétation attendue** : Ce que la visualisation permet d'observer, de déduire ou de diagnostiquer concrètement pour l'efficacité énergétique.
+Pour CHAQUE modèle proposé, tu dois obligatoirement détailler les 5 éléments suivants :
+1. **Type de problème** : Régression, séries temporelles, apprentissage supervisé, etc.
+2. **Principe** : Explication concise du fonctionnement algorithmique du modèle.
+3. **Avantages** : Points forts pour la prédiction énergétique de bâtiment.
+4. **Limites** : Inconvénients, contraintes de données ou risques de surapprentissage.
+5. **Métriques pertinentes** : Métriques d'évaluation de performance recommandées (ex: RMSE, MAE, R², MAPE).
 
 ### FORMAT DE SORTIE
-Structure la réponse de manière claire avec une section numérotée pour chaque visualisation et des puces d'explication."""
+Structure la réponse de manière claire avec une section numérotée pour chaque modèle et des puces bien définies."""
 
     res = appeler_gemini(prompt)
-    recommandations = res.text.strip()
+    modeles = res.text.strip()
 
     print(f"[Description du dataset] :\n{description_dataset}\n")
-    print("[Recommandations de visualisations] :")
-    print(recommandations)
+    print("[Recommandations de modèles] :")
+    print(modeles)
     print("\n--------------------------------------------------")
 
-    return recommandations
+    return modeles
 
 
 if __name__ == "__main__":
@@ -128,4 +134,4 @@ if __name__ == "__main__":
     - type_usage (string : "CVC", "Éclairage", "Prises", "Informatique")
     """
 
-    question_visualisations_energetiques(dataset_energie_info)
+    question_modeles_prediction_energetique(dataset_energie_info)

@@ -1,6 +1,7 @@
 import os
 import json
 from dotenv import load_dotenv
+import pypdf
 from google import genai
 from google.genai.errors import APIError
 
@@ -38,75 +39,107 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "MÉTRIQUES DE RÉGRESSION" in prompt or "MAE" in prompt:
-        return MockResponse("""### GUIDE COMPLET DES MÉTRIQUES DE RÉGRESSION
-
-1. **MAE (Mean Absolute Error - Erreur Absolue Moyenne)**
-   - **Définition** : Moyenne des écarts absolus entre les valeurs prédites et les valeurs réelles : MAE = (1/n) * Σ |y_i - ŷ_i|.
-   - **Interprétation** : Représente l'erreur moyenne du modèle exprimée directement dans la même unité que la variable cible.
-   - **Exemple concret** : Si la MAE d'un modèle de prédiction de consommation électrique est de 15 kWh, cela signifie qu'en moyenne, les prédictions s'écartent de 15 kWh de la réalité.
-   - **Contexte utile** : Idéal lorsque toutes les erreurs doivent être traitées de manière linéaire et que le jeu de données contient des valeurs aberrantes (outliers) qu'on ne veut pas sur-pénaliser.
-
-2. **MSE (Mean Squared Error - Erreur Quadratique Moyenne)**
-   - **Définition** : Moyenne des carrés des écarts entre les valeurs prédites et les valeurs réelles : MSE = (1/n) * Σ (y_i - ŷ_i)².
-   - **Interprétation** : Mesure la variance de l'erreur en pénalisant de manière quadratique (au carré) les grands écarts.
-   - **Exemple concret** : Une erreur de 2 unités produit une pénalité de 4, tandis qu'une erreur de 10 unités produit une pénalité de 100.
-   - **Contexte utile** : Particulièrement utile lors de l'entraînement d'algorithmes (fonction de perte) car elle est dérivable partout et pénalise sévèrement les erreurs importantes.
-
-3. **RMSE (Root Mean Squared Error - Racine de l'Erreur Quadratique Moyenne)**
-   - **Définition** : Racine carrée de l'erreur quadratique moyenne : RMSE = √MSE.
-   - **Interprétation** : Mesure l'écart-type des résidus, exprimée dans la même unité que la variable cible tout en conservant la pénalisation forte des grands écarts.
-   - **Exemple concret** : Pour la prédiction de la consommation d'un bâtiment, une RMSE de 22 kWh indique que les grosses erreurs de prédiction ont tiré la moyenne des écarts vers le haut par rapport à la MAE (15 kWh).
-   - **Contexte utile** : Indispensable lorsqu'une grande erreur de prédiction a des conséquences beaucoup plus graves ou coûteuses qu'une petite erreur (ex: gestion du réseau électrique, prévision des pics de charge).""")
+    if "PROMPT A" in prompt:
+        return MockResponse("""[Réponse Prompt A] : Sans accès au texte du document, je ne peux pas confirmer le nombre exact de questionnaires exploitables ni la répartition précise. En général, les études camerounaises portent sur Douala et Yaoundé.""")
+    elif "PROMPT B" in prompt:
+        return MockResponse("""[Réponse Prompt B] : D'après le document, l'échantillon final comporte 78 questionnaires exploitables issus de 100 entreprises enquêtées à Douala et Yaoundé.""")
     else:
-        mock_json = {
-            "sentiment": "negatif",
-            "categorie": "livraison",
-            "urgence": "moyenne",
-            "probleme": "Retard de livraison",
-            "confiance": 0.91
-        }
-        return MockResponse(json.dumps(mock_json, ensure_ascii=False, indent=2))
+        return MockResponse("""[Réponse Prompt C] :
+1. **Taille de l'échantillon** : 78 sociétés anonymes (sur 100 administrées).
+   - *Source* : Section II.2 "En retour, nous avons disposé de 78 questionnaires exploitables."
+2. **Villes d'enquête** : Douala et Yaoundé.
+   - *Source* : Section II.2 "L'administration du questionnaire s'est faite dans les deux grandes villes du Cameroun que sont Douala et Yaoundé."
+3. **Taux de réponse par secteur** : Information non trouvée dans le document.""")
+
+
+def extraire_texte_pdf(chemin_pdf: str) -> str:
+    """Extrait le texte intégral du fichier PDF fourni."""
+    if not os.path.exists(chemin_pdf):
+        print(f"[Erreur] Le fichier {chemin_pdf} est introuvable.")
+        return ""
+    
+    reader = pypdf.PdfReader(chemin_pdf)
+    texte = ""
+    for page in reader.pages:
+        texte += page.extract_text() + "\n"
+    return texte
 
 
 # ==============================================================================
-# PARTIE 5.10 : EXPLICATION DES MÉTRIQUES DE RÉGRESSION
+# PARTIE 5.11 : TEST COMPARATIF DES PROMPTS SUR PDF (PROMPTS A, B, C)
 # ==============================================================================
 
-def question_explication_metriques_regression() -> str:
+def tester_prompts_sur_pdf(chemin_pdf: str):
     """
-    Génère un guide explicatif structuré des 3 principales métriques de régression :
-    MAE, MSE et RMSE.
+    Exécute et compare 3 stratégies de prompting sur le document PDF :
+    - Prompt A : Sans le document
+    - Prompt B : Avec le document
+    - Prompt C : Avec le document + contraintes de fidélité et de citation
     """
     print("==================================================")
-    print("   PARTIE 5.10 : MÉTRIQUES DE RÉGRESSION          ")
+    print("   PARTIE 5.11 : TEST DES PROMPTS A, B, C SUR PDF ")
     print("==================================================\n")
 
-    prompt = """### TÂCHE : EXPLICATION PÉDAGOGIQUE DES MÉTRIQUES DE RÉGRESSION
-Rédige un guide explicatif clair et structuré pour présenter les 3 métriques clés d'évaluation des modèles de régression suivantes :
-1. MAE (Mean Absolute Error)
-2. MSE (Mean Squared Error)
-3. RMSE (Root Mean Squared Error)
+    texte_document = extraire_texte_pdf(chemin_pdf)
 
-### EXIGENCES DE CONTENU
-Pour CHAQUE métrique mentionnée ci-dessus, tu dois obligatoirement détailler les 4 points suivants :
-- **Définition** : Formule mathématique ou explication conceptuelle simple.
-- **Interprétation** : Ce que la métrique mesure concrètement et son unité de mesure.
-- **Exemple concret** : Un cas d'usage illustratif avec des chiffres simples (ex: prédiction de prix d'immobilier, consommation énergétique, température).
-- **Contexte utile** : Dans quelle situation métier cette métrique doit être privilégiée (ex: présence d'outliers, sensibilité aux grandes erreurs, interprétabilité).
+    question = "Quelle est la taille de l'échantillon, les villes de l'enquête et le taux de réponse du secteur industriel ?"
 
-### FORMAT DE SORTIE
-Structure la réponse avec un titre numéroté par métrique et des puces d'explication bien alignées."""
+    # -------------------------------------------------------------------------
+    # PROMPT A : Sans fournir le document
+    # -------------------------------------------------------------------------
+    prompt_a = f"""[PROMPT A - SANS DOCUMENT]
+Réponds à la question suivante concernant l'étude de Dagobert Ngongang sur la communication financière au Cameroun :
+{question}"""
 
-    res = appeler_gemini(prompt)
-    explications = res.text.strip()
+    print("--- [TEST PROMPT A : SANS DOCUMENT] ---")
+    res_a = appeler_gemini(prompt_a)
+    print(res_a.text.strip())
+    print("\n--------------------------------------------------\n")
 
-    print("[Guide des métriques de régression généré] :")
-    print(explications)
-    print("\n--------------------------------------------------")
+    # -------------------------------------------------------------------------
+    # PROMPT B : En fournissant le document
+    # -------------------------------------------------------------------------
+    prompt_b = f"""[PROMPT B - AVEC DOCUMENT]
+Voici le contenu d'un document académique :
 
-    return explications
+--- DEBUT DU DOCUMENT ---
+{texte_document[:4000]}  # Extrait pour conserver la limite du prompt
+--- FIN DU DOCUMENT ---
+
+En te basant sur ce document, réponds à la question suivante :
+{question}"""
+
+    print("--- [TEST PROMPT B : AVEC DOCUMENT] ---")
+    res_b = appeler_gemini(prompt_b)
+    print(res_b.text.strip())
+    print("\n--------------------------------------------------\n")
+
+    # -------------------------------------------------------------------------
+    # PROMPT C : Avec document + contraintes strictes + citations
+    # -------------------------------------------------------------------------
+    prompt_c = f"""[PROMPT C - AVEC DOCUMENT + CONTRAINTES STRICTES]
+Voici le contenu d'un document académique :
+
+--- DEBUT DU DOCUMENT ---
+{texte_document[:4000]}
+--- FIN DU DOCUMENT ---
+
+Consignes strictes :
+1. Utilise STRICTEMENT et UNIQUEMENT le contexte fourni ci-dessus.
+2. Ne cherche pas à inventer ou deviner une information absente du texte.
+3. Si une information ou un détail n'est pas présent, écris explicitement : "Information non trouvée dans le document".
+4. Cite le passage ou la section du document utilisé pour justifier chaque élément de réponse.
+
+Question :
+{question}"""
+
+    print("--- [TEST PROMPT C : CONTRAINTES STRICTES ET CITATIONS] ---")
+    res_c = appeler_gemini(prompt_c)
+    print(res_c.text.strip())
+    print("\n--------------------------------------------------\n")
 
 
 if __name__ == "__main__":
-    question_explication_metriques_regression()
+    # Assurez-vous que le fichier PDF est dans le même dossier ou fournissez le bon chemin
+    nom_fichier_pdf = "télécharger.pdf"
+    tester_prompts_sur_pdf(nom_fichier_pdf)

@@ -38,38 +38,26 @@ def appeler_gemini(prompt: str):
 
     # Secours MOCK automatique
     print("[INFO] Mode MOCK (Hors-Ligne) activé.")
-    if "MÉTRIQUES DE CLASSIFICATION" in prompt or "Accuracy" in prompt:
-        return MockResponse("""### GUIDE COMPLET DES MÉTRIQUES DE CLASSIFICATION
+    if "MÉTRIQUES DE RÉGRESSION" in prompt or "MAE" in prompt:
+        return MockResponse("""### GUIDE COMPLET DES MÉTRIQUES DE RÉGRESSION
 
-1. **Accuracy (Exactitude)**
-   - **Définition** : Proportion de prédictions correctes (vrais positifs et vrais négatifs) parmi le total des prédictions.
-   - **Interprétation** : Indique à quel point le modèle a raison globalement.
-   - **Exemple concret** : Un modèle classant des e-mails (spam/non-spam) obtient 95 bonnes prédictions sur 100 ; son accuracy est de 95%.
-   - **Contexte utile** : Recommandé uniquement lorsque les classes sont bien équilibrées (ex: 50% classe A / 50% classe B).
+1. **MAE (Mean Absolute Error - Erreur Absolue Moyenne)**
+   - **Définition** : Moyenne des écarts absolus entre les valeurs prédites et les valeurs réelles : MAE = (1/n) * Σ |y_i - ŷ_i|.
+   - **Interprétation** : Représente l'erreur moyenne du modèle exprimée directement dans la même unité que la variable cible.
+   - **Exemple concret** : Si la MAE d'un modèle de prédiction de consommation électrique est de 15 kWh, cela signifie qu'en moyenne, les prédictions s'écartent de 15 kWh de la réalité.
+   - **Contexte utile** : Idéal lorsque toutes les erreurs doivent être traitées de manière linéaire et que le jeu de données contient des valeurs aberrantes (outliers) qu'on ne veut pas sur-pénaliser.
 
-2. **Precision (Précision)**
-   - **Définition** : Proportion de vrais positifs parmi l'ensemble des éléments prédits comme positifs (VP / (VP + FP)).
-   - **Interprétation** : Mesure la fiabilité des alarmes ou prédictions positives déclenchées par le modèle.
-   - **Exemple concret** : Si le filtre détecte 10 spams et que 9 d'entre eux en sont réellement, la précision est de 90%.
-   - **Contexte utile** : Crucial lorsque le coût d'un **Faux Positif (fausse alerte)** est très élevé (ex: filtre anti-spam d'e-mails importants, blocage automatique de comptes bancaires légitimes).
+2. **MSE (Mean Squared Error - Erreur Quadratique Moyenne)**
+   - **Définition** : Moyenne des carrés des écarts entre les valeurs prédites et les valeurs réelles : MSE = (1/n) * Σ (y_i - ŷ_i)².
+   - **Interprétation** : Mesure la variance de l'erreur en pénalisant de manière quadratique (au carré) les grands écarts.
+   - **Exemple concret** : Une erreur de 2 unités produit une pénalité de 4, tandis qu'une erreur de 10 unités produit une pénalité de 100.
+   - **Contexte utile** : Particulièrement utile lors de l'entraînement d'algorithmes (fonction de perte) car elle est dérivable partout et pénalise sévèrement les erreurs importantes.
 
-3. **Recall (Rappel / Sensibilité)**
-   - **Définition** : Proportion de vrais positifs détectés parmi l'ensemble des cas réellement positifs (VP / (VP + FN)).
-   - **Interprétation** : Mesure la capacité du modèle à ne pas rater les cas critiques.
-   - **Exemple concret** : Si sur 100 patients malades, le test en repère 98, le rappel est de 98%.
-   - **Contexte utile** : Indispensable lorsque le coût d'un **Faux Négatif (cas raté)** est critique (ex: diagnostic de maladies graves, détection de fraudes, détection de pannes critiques).
-
-4. **F1-score**
-   - **Définition** : Moyenne harmonique entre la Précision et le Rappel : 2 * (Precision * Recall) / (Precision + Recall).
-   - **Interprétation** : Donne une vue d'ensemble équilibrée entre le contrôle des fausses alarmes et la détection globale.
-   - **Exemple concret** : Un modèle avec Précision = 0.80 et Rappel = 0.90 obtient un F1-score de 0.84, évitant de surévaluer un modèle déséquilibré.
-   - **Contexte utile** : Très utile en présence de jeux de données déséquilibrés lorsqu'un arbitrage équitable entre Précision et Rappel est recherché.
-
-5. **ROC-AUC (Area Under the ROC Curve)**
-   - **Définition** : Aire sous la courbe représentant le taux de vrais positifs en fonction du taux de faux positifs pour tous les seuils de décision possibles.
-   - **Interprétation** : Mesure la capacité de discrimination globale du modèle (sa capacité à classer une instance positive au-dessus d'une instance négative).
-   - **Exemple concret** : Une AUC de 0.92 signifie qu'il y a 92% de chances que le modèle attribue un score plus élevé à un individu réellement à risque qu'à un individu sain.
-   - **Contexte utile** : Idéal pour comparer plusieurs modèles indépendamment du seuil de classification choisi et pour évaluer les performances globales sur des données déséquilibrées.""")
+3. **RMSE (Root Mean Squared Error - Racine de l'Erreur Quadratique Moyenne)**
+   - **Définition** : Racine carrée de l'erreur quadratique moyenne : RMSE = √MSE.
+   - **Interprétation** : Mesure l'écart-type des résidus, exprimée dans la même unité que la variable cible tout en conservant la pénalisation forte des grands écarts.
+   - **Exemple concret** : Pour la prédiction de la consommation d'un bâtiment, une RMSE de 22 kWh indique que les grosses erreurs de prédiction ont tiré la moyenne des écarts vers le haut par rapport à la MAE (15 kWh).
+   - **Contexte utile** : Indispensable lorsqu'une grande erreur de prédiction a des conséquences beaucoup plus graves ou coûteuses qu'une petite erreur (ex: gestion du réseau électrique, prévision des pics de charge).""")
     else:
         mock_json = {
             "sentiment": "negatif",
@@ -82,32 +70,30 @@ def appeler_gemini(prompt: str):
 
 
 # ==============================================================================
-# PARTIE 5.9 : EXPLICATION DES MÉTRIQUES DE CLASSIFICATION
+# PARTIE 5.10 : EXPLICATION DES MÉTRIQUES DE RÉGRESSION
 # ==============================================================================
 
-def question_explication_metriques_classification() -> str:
+def question_explication_metriques_regression() -> str:
     """
-    Génère un guide explicatif structuré des 5 principales métriques de classification :
-    Accuracy, Precision, Recall, F1-score et ROC-AUC.
+    Génère un guide explicatif structuré des 3 principales métriques de régression :
+    MAE, MSE et RMSE.
     """
     print("==================================================")
-    print("   PARTIE 5.9 : MÉTRIQUES DE CLASSIFICATION       ")
+    print("   PARTIE 5.10 : MÉTRIQUES DE RÉGRESSION          ")
     print("==================================================\n")
 
-    prompt = """### TÂCHE : EXPLICATION PÉDAGOGIQUE DES MÉTRIQUES DE CLASSIFICATION
-Rédige un guide explicatif clair et structuré pour présenter les 5 métriques d'évaluation de classification suivantes :
-1. Accuracy (Exactitude)
-2. Precision (Précision)
-3. Recall (Rappel / Sensibilité)
-4. F1-score
-5. ROC-AUC
+    prompt = """### TÂCHE : EXPLICATION PÉDAGOGIQUE DES MÉTRIQUES DE RÉGRESSION
+Rédige un guide explicatif clair et structuré pour présenter les 3 métriques clés d'évaluation des modèles de régression suivantes :
+1. MAE (Mean Absolute Error)
+2. MSE (Mean Squared Error)
+3. RMSE (Root Mean Squared Error)
 
 ### EXIGENCES DE CONTENU
 Pour CHAQUE métrique mentionnée ci-dessus, tu dois obligatoirement détailler les 4 points suivants :
 - **Définition** : Formule mathématique ou explication conceptuelle simple.
-- **Interprétation** : Ce que la métrique mesure concrètement en langage clair.
-- **Exemple concret** : Un cas d'usage illustratif avec des chiffres simples (ex: médical, spam, finance).
-- **Contexte utile** : Dans quelle situation/problématique métier cette métrique doit être privilégiée (ex: données déséquilibrées, impact des faux positifs vs faux négatifs).
+- **Interprétation** : Ce que la métrique mesure concrètement et son unité de mesure.
+- **Exemple concret** : Un cas d'usage illustratif avec des chiffres simples (ex: prédiction de prix d'immobilier, consommation énergétique, température).
+- **Contexte utile** : Dans quelle situation métier cette métrique doit être privilégiée (ex: présence d'outliers, sensibilité aux grandes erreurs, interprétabilité).
 
 ### FORMAT DE SORTIE
 Structure la réponse avec un titre numéroté par métrique et des puces d'explication bien alignées."""
@@ -115,7 +101,7 @@ Structure la réponse avec un titre numéroté par métrique et des puces d'expl
     res = appeler_gemini(prompt)
     explications = res.text.strip()
 
-    print("[Guide des métriques généré] :")
+    print("[Guide des métriques de régression généré] :")
     print(explications)
     print("\n--------------------------------------------------")
 
@@ -123,4 +109,4 @@ Structure la réponse avec un titre numéroté par métrique et des puces d'expl
 
 
 if __name__ == "__main__":
-    question_explication_metriques_classification()
+    question_explication_metriques_regression()
